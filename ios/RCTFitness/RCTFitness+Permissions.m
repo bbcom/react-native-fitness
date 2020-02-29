@@ -14,17 +14,19 @@
 {
     switch (permission) {
         case STEP:
-             return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount];
+            return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount];
         case DISTANCE:
-             return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierDistanceWalkingRunning];
+            return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierDistanceWalkingRunning];
         case ACTIVITY:
-                return nil;
+            return nil;
         case CALORIES:
-                return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierActiveEnergyBurned];
+            return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierActiveEnergyBurned];
+        case WEIGHT:
+            return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierBodyMass];
         default:
             return nil;
     }
-   
+    
 }
 
 

@@ -10,24 +10,25 @@
 @end
 
 @implementation RCTConvert (Fitness)
-RCT_ENUM_CONVERTER(RCTFitnessError, (@{ @"hkNotAvailable" : @(ErrorHKNotAvailable),
-                                        @"methodNotAvailable" : @(ErrorMethodNotAvailable),
-                                        @"dateNotCorrect" : @(ErrorDateNotCorrect)}),
-                                        @"errorNoEvents" : @(ErrorNoEvents),
+RCT_ENUM_CONVERTER(RCTFitnessError, (@{ @"hkNotAvailable"        : @(ErrorHKNotAvailable),
+                                        @"methodNotAvailable"    : @(ErrorMethodNotAvailable),
+                                        @"dateNotCorrect"        : @(ErrorDateNotCorrect),
+                                        @"errorNoEvents"         : @(ErrorNoEvents),
                                         @"errorEmptyPermissions" : @(ErrorEmptyPermissions)}),
                    ErrorHKNotAvailable, integerValue)
 @end
 
 @implementation RCTConvert (Permission)
-RCT_ENUM_CONVERTER(RCTFitnessPermissionKind, (@{ @"Step" : @(STEP),
+RCT_ENUM_CONVERTER(RCTFitnessPermissionKind, (@{ @"Step"     : @(STEP),
                                                  @"Distance" : @(DISTANCE),
                                                  @"Calories" : @(CALORIES),
+                                                 @"Weight"   : @(WEIGHT),
                                                  @"Activity" : @(ACTIVITY)}),
                    STEP, integerValue)
 @end
 
 @implementation RCTConvert (PermissionAccess)
-RCT_ENUM_CONVERTER(RCTFitnessPermissionAccess, (@{ @"Read" : @(READ),
+RCT_ENUM_CONVERTER(RCTFitnessPermissionAccess, (@{ @"Read"  : @(READ),
                                                    @"Write" : @(WRITE)}),
                    READ, integerValue)
 @end
@@ -88,6 +89,7 @@ RCT_EXPORT_MODULE(Fitness);
                 @"Step": @(STEP),
                 @"Distance": @(DISTANCE),
                 @"Calories": @(CALORIES),
+                @"Weight": @(WEIGHT),
                 @"Activity": @(ACTIVITY),
         },
         @"PermissionAccess": @{
@@ -344,6 +346,51 @@ RCT_REMAP_METHOD(getCalories,
             resolve(data);
         });
     };
+    
+    [self.healthStore executeQuery:query];
+}
+
+RCT_REMAP_METHOD(getWeight,
+                 withWeightResolver:(RCTPromiseResolveBlock)resolve
+                 andWeightRejecter:(RCTPromiseRejectBlock)reject){
+    
+    // Since we are interested in retrieving the user's latest sample
+    // we sort the samples in descending order by end date
+    // and set the limit to 1
+    // We are not filtering the data, and so the predicate is set to nil.
+    NSSortDescriptor *timeSortDescriptor = [[NSSortDescriptor alloc] initWithKey:HKSampleSortIdentifierEndDate ascending:NO];
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc]
+                            initWithSampleType: [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierBodyMass]
+                            predicate: nil
+                            limit: 1
+                            sortDescriptors: @[timeSortDescriptor]
+                            resultsHandler: ^(HKSampleQuery *query, NSArray<__kindof HKQuantitySample *> *results, NSError *error) {
+        
+        if (error) {
+            NSError * error = [RCTFitness createErrorWithCode:ErrorNoEvents andDescription:RCT_ERROR_NO_EVENTS];
+            [RCTFitness handleRejectBlock:reject error:error];
+            return;
+        }
+        
+        
+        NSDictionary *weight = @{};
+        
+        if ((unsigned long)results.count > 0){
+            if (results[0].quantity) {
+                weight = @{
+                    @"grams" : @([results[0].quantity doubleValueForUnit:[HKUnit gramUnit]]),
+                    @"kilograms" : @([results[0].quantity doubleValueForUnit:[HKUnit gramUnit]] / 1000),
+                    @"pounds" : @([results[0].quantity doubleValueForUnit:[HKUnit poundUnit]]),
+                    @"startDate" : [RCTFitness ISO8601StringFromDate: results[0].startDate],
+                    @"endDate" : [RCTFitness ISO8601StringFromDate: results[0].endDate],
+                };
+            }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            resolve(weight);
+        });
+    }];
     
     [self.healthStore executeQuery:query];
 }
