@@ -23,7 +23,8 @@ RCT_ENUM_CONVERTER(RCTFitnessPermissionKind, (@{ @"Step"     : @(STEP),
                                                  @"Distance" : @(DISTANCE),
                                                  @"Calories" : @(CALORIES),
                                                  @"Weight"   : @(WEIGHT),
-                                                 @"Activity" : @(ACTIVITY)}),
+                                                 @"Activity" : @(ACTIVITY),
+                                                 @"Workout"  : @(WORKOUT)}),
                    STEP, integerValue)
 @end
 
@@ -80,21 +81,34 @@ RCT_EXPORT_MODULE(Fitness);
     return @{
         @"Platform" : @"AppleHealth",
         @"Error": @{
-                @"hkNotAvailable" : @(ErrorHKNotAvailable),
-                @"methodNotAvailable" : @(ErrorMethodNotAvailable),
-                @"dateNotCorrect" : @(ErrorDateNotCorrect),
-                @"emptyPermission" : @(ErrorEmptyPermissions),
+            @"hkNotAvailable" : @(ErrorHKNotAvailable),
+            @"methodNotAvailable" : @(ErrorMethodNotAvailable),
+            @"dateNotCorrect" : @(ErrorDateNotCorrect),
+            @"emptyPermission" : @(ErrorEmptyPermissions),
         },
         @"PermissionKind": @{
-                @"Step": @(STEP),
-                @"Distance": @(DISTANCE),
-                @"Calories": @(CALORIES),
-                @"Weight": @(WEIGHT),
-                @"Activity": @(ACTIVITY),
+            @"Step": @(STEP),
+            @"Distance": @(DISTANCE),
+            @"Calories": @(CALORIES),
+            @"Weight": @(WEIGHT),
+            @"Activity": @(ACTIVITY),
+            @"Workout": @(WORKOUT),
         },
         @"PermissionAccess": @{
-                @"Read": @(READ),
-                @"Write": @(WRITE),
+            @"Read": @(READ),
+            @"Write": @(WRITE),
+        },
+        @"WorkoutType": @{
+            @"CrossTraining": @(HKWorkoutActivityTypeCrossTraining),
+            @"Cycling": @(HKWorkoutActivityTypeCycling),
+            @"Functional": @(HKWorkoutActivityTypeFunctionalStrengthTraining),
+            @"JumpRope": @(HKWorkoutActivityTypeJumpRope),
+            @"MixedCardio" : @(HKWorkoutActivityTypeMixedCardio),
+            @"Running":  @(HKWorkoutActivityTypeRunning),
+            @"StairClimbing": @(HKWorkoutActivityTypeStairClimbing),
+            @"Traditional": @(HKWorkoutActivityTypeTraditionalStrengthTraining),
+            @"Walking": @(HKWorkoutActivityTypeWalking),
+            @"WarmUp": @(HKWorkoutActivityTypePreparationAndRecovery),
         },
     };
 }
@@ -372,10 +386,8 @@ RCT_REMAP_METHOD(getWeight,
             [RCTFitness handleRejectBlock:reject error:error];
             return;
         }
-        
-        
+
         NSDictionary *weight = @{};
-        
         if ((unsigned long)results.count > 0){
             if (results[0].quantity) {
                 weight = @{
@@ -393,6 +405,32 @@ RCT_REMAP_METHOD(getWeight,
     }];
     
     [self.healthStore executeQuery:query];
+}
+
+RCT_EXPORT_METHOD(saveWorkout:(int)activity
+                  withStartDate: (double) startDate
+                  andEndDate: (double) endDate){
+    
+    NSDate * sd = [RCTFitness dateFromTimeStamp: startDate / 1000];
+    NSDate * ed = [RCTFitness dateFromTimeStamp: endDate   / 1000];
+    
+//    NSDate *finish = [NSDate date]; // The current time
+//    NSDate *start = [finish dateByAddingTimeInterval:-60*60]; // One hour ago
+    
+    HKWorkout *workout = [HKWorkout
+                          workoutWithActivityType: activity
+                            startDate: sd
+                            endDate: ed
+                          ];
+
+    [self.healthStore saveObject:workout withCompletion:^(BOOL success, NSError * _Nullable error) {
+        if(success) {
+            NSLog(@"The workout was successfully saved");
+        } else {
+            NSLog(@"ERROR: Unable to save workout");
+            NSLog(@"%@", error);
+        }
+    }];
 }
 
 @end
