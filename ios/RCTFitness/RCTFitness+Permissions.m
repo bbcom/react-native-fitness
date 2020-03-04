@@ -23,6 +23,8 @@
             return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierActiveEnergyBurned];
         case WEIGHT:
             return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierBodyMass];
+        case WORKOUT:
+            return [HKObjectType workoutType];
         default:
             return nil;
     }

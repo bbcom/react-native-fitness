@@ -9,6 +9,7 @@ typedef NS_ENUM(NSInteger, RCTFitnessPermissionKind)
     CALORIES,
     WEIGHT,
     ACTIVITY,
+    WORKOUT,
 };
 
 typedef NS_ENUM(NSInteger, RCTFitnessPermissionAccess)
