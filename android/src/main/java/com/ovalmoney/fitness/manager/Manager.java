@@ -19,11 +19,13 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.fitness.Fitness;
+import com.google.android.gms.fitness.FitnessActivities;
 import com.google.android.gms.fitness.FitnessOptions;
 import com.google.android.gms.fitness.data.Bucket;
 import com.google.android.gms.fitness.data.DataPoint;
 import com.google.android.gms.fitness.data.DataSet;
 import com.google.android.gms.fitness.data.DataType;
+import com.google.android.gms.fitness.data.Device;
 import com.google.android.gms.fitness.data.Field;
 import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.request.DataReadRequest;
@@ -41,11 +43,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.ovalmoney.fitness.permission.Permission.ACTIVITY;
 import static com.ovalmoney.fitness.permission.Permission.CALORIES;
 import static com.ovalmoney.fitness.permission.Permission.DISTANCE;
 import static com.ovalmoney.fitness.permission.Permission.STEP;
+import static com.ovalmoney.fitness.permission.Permission.WEIGHT;
 
 public class Manager implements ActivityEventListener {
 
@@ -85,6 +91,8 @@ public class Manager implements ActivityEventListener {
                     break;
                 case ACTIVITY:
                     fitnessOptions.addDataType(DataType.TYPE_ACTIVITY_SEGMENT, currentRequest.permissionAccess);
+                case WEIGHT:
+                    fitnessOptions.addDataType(DataType.TYPE_WEIGHT, currentRequest.permissionAccess);
                     break;
                 default:
                     break;
@@ -271,6 +279,7 @@ public class Manager implements ActivityEventListener {
                 });
     }
 
+
     public void getCalories(Context context, double startDate, double endDate, final Promise promise) {
         DataReadRequest readRequest = new DataReadRequest.Builder()
                 .aggregate(DataType.TYPE_CALORIES_EXPENDED, DataType.AGGREGATE_CALORIES_EXPENDED)
@@ -306,6 +315,86 @@ public class Manager implements ActivityEventListener {
                     public void onComplete(@NonNull Task<DataReadResponse> task) {
                     }
                 });
+    }
+
+    // Get the most recent weight
+    public void getWeight(Context context, final Promise promise) {
+        Calendar calendar = Calendar.getInstance();
+
+        DataReadRequest readRequest = new DataReadRequest.Builder()
+                .read(DataType.TYPE_WEIGHT)
+                .setTimeRange(1, calendar.getTimeInMillis(), TimeUnit.MILLISECONDS)
+                .setLimit(1)
+                .build();
+
+        Fitness.getHistoryClient(context, GoogleSignIn.getLastSignedInAccount(context))
+                .readData(readRequest)
+                .addOnSuccessListener(new OnSuccessListener<DataReadResponse>() {
+                    @Override
+                    public void onSuccess(DataReadResponse dataReadResponse) {
+                        if (!dataReadResponse.getDataSet(DataType.TYPE_WEIGHT).isEmpty()) {
+                            DataPoint result = dataReadResponse.getDataSet(DataType.TYPE_WEIGHT).getDataPoints().get(0);
+                            Double kilograms = (double) result.getValue(Field.FIELD_WEIGHT).asFloat();
+
+                            WritableMap weightMap = Arguments.createMap();
+                            weightMap.putDouble("kilograms",kilograms);
+                            weightMap.putDouble("grams",(kilograms * 1000));
+                            weightMap.putDouble("pounds", (kilograms * 2.20462262185));
+                            weightMap.putDouble("startDate", result.getStartTime(TimeUnit.MILLISECONDS));
+                            weightMap.putDouble("endDate", result.getEndTime(TimeUnit.MILLISECONDS));
+                            promise.resolve(weightMap);
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        promise.reject(e);
+                    }
+                })
+                .addOnCompleteListener(new OnCompleteListener<DataReadResponse>() {
+                    @Override
+                    public void onComplete(@NonNull Task<DataReadResponse> task) {
+                    }
+                });
+    }
+
+    public void saveActivity(Context context, String activity, double startDate, double endDate,final Promise promise) {
+        DataSource dataSource = new DataSource.Builder()
+            .setAppPackageName(context)
+            .setDataType(DataType.TYPE_ACTIVITY_SEGMENT)
+            .setStreamName("BodyFit-DS-Builder")
+            .setType(DataSource.TYPE_RAW)
+            .build();
+
+        DataPoint dataPoint = DataPoint.builder(dataSource)
+                        .setTimeInterval((long) startDate, (long) endDate, TimeUnit.MILLISECONDS)
+                        .setActivityField(Field.FIELD_ACTIVITY, activity)
+                        .build();
+
+        DataSet dataSet = DataSet.builder(dataSource).add(dataPoint).build();
+
+        Fitness.getHistoryClient(context, GoogleSignIn.getLastSignedInAccount(context))
+                .insertData(dataSet)
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        promise.reject(e);
+                    }
+                })
+                .addOnCompleteListener(
+                        new OnCompleteListener<Void>() {
+                            @Override
+                            public void onComplete(@NonNull Task<Void> task) {
+                                if (task.isSuccessful()) {
+                                    // Data has been inserted and can be read.
+                                    promise.resolve(true);
+                                } else {
+                                    System.out.println("There was a problem inserting the DataSet." + task.getException());
+                                    promise.reject("SaveActivityError",task.getException());
+                                }
+                            }
+                        });
     }
 
     private void processStep(DataSet dataSet, WritableArray map) {
