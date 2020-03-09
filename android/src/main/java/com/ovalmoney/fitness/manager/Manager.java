@@ -359,11 +359,11 @@ public class Manager implements ActivityEventListener {
                 });
     }
 
-    public void saveActivity(Context context, String activity, double startDate, double endDate,final Promise promise) {
+    public void saveActivity(Context context, String activity, double startDate, double endDate, final Promise promise) {
         DataSource dataSource = new DataSource.Builder()
             .setAppPackageName(context)
             .setDataType(DataType.TYPE_ACTIVITY_SEGMENT)
-            .setStreamName("BodyFit-DS-Builder")
+            .setStreamName("save_activity_" + activity.replace(".","_"))
             .setType(DataSource.TYPE_RAW)
             .build();
 
