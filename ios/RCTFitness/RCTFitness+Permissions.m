@@ -25,6 +25,8 @@
             return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierBodyMass];
         case WORKOUT:
             return [HKObjectType workoutType];
+        case HEART_RATE:
+                return [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierHeartRate];
         default:
             return nil;
     }

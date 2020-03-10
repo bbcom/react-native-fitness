@@ -51,6 +51,7 @@ import static com.ovalmoney.fitness.permission.Permission.ACTIVITY;
 import static com.ovalmoney.fitness.permission.Permission.CALORIES;
 import static com.ovalmoney.fitness.permission.Permission.DISTANCE;
 import static com.ovalmoney.fitness.permission.Permission.STEP;
+import static com.ovalmoney.fitness.permission.Permission.HEART_RATE;
 import static com.ovalmoney.fitness.permission.Permission.WEIGHT;
 
 public class Manager implements ActivityEventListener {
@@ -91,7 +92,11 @@ public class Manager implements ActivityEventListener {
                     break;
                 case ACTIVITY:
                     fitnessOptions.addDataType(DataType.TYPE_ACTIVITY_SEGMENT, currentRequest.permissionAccess);
-                case WEIGHT:
+                    break;
+                case HEART_RATE:
+                    fitnessOptions.addDataType(DataType.TYPE_HEART_RATE_BPM, currentRequest.permissionAccess);
+                    break;
+				case WEIGHT:
                     fitnessOptions.addDataType(DataType.TYPE_WEIGHT, currentRequest.permissionAccess);
                     break;
                 default:
@@ -235,7 +240,7 @@ public class Manager implements ActivityEventListener {
                 });
     }
 
-    public void getDistance(Context context, double startDate, double endDate, String customInterval,final Promise promise) {
+    public void getDistance(Context context, double startDate, double endDate, String customInterval, final Promise promise) {
         TimeUnit interval;
         if(customInterval == "hour"){
             interval = TimeUnit.HOURS;
@@ -279,11 +284,16 @@ public class Manager implements ActivityEventListener {
                 });
     }
 
-
-    public void getCalories(Context context, double startDate, double endDate, final Promise promise) {
+    public void getCalories(Context context, double startDate, double endDate, String customInterval, final Promise promise) {
+        TimeUnit interval;
+        if(customInterval == "hour"){
+            interval = TimeUnit.HOURS;
+        }else{
+            interval = TimeUnit.DAYS;
+        }
         DataReadRequest readRequest = new DataReadRequest.Builder()
                 .aggregate(DataType.TYPE_CALORIES_EXPENDED, DataType.AGGREGATE_CALORIES_EXPENDED)
-                .bucketByTime(1, TimeUnit.DAYS)
+                .bucketByTime(1, interval)
                 .setTimeRange((long) startDate, (long) endDate, TimeUnit.MILLISECONDS)
                 .build();
 
@@ -301,6 +311,50 @@ public class Manager implements ActivityEventListener {
                                 }
                             }
                             promise.resolve(calories);
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        promise.reject(e);
+                    }
+                })
+                .addOnCompleteListener(new OnCompleteListener<DataReadResponse>() {
+                    @Override
+                    public void onComplete(@NonNull Task<DataReadResponse> task) {
+                    }
+                });
+    }
+
+     public void getHeartRate(Context context, double startDate, double endDate, String customInterval,final Promise promise) {
+        TimeUnit interval;
+        if(customInterval == "hour"){
+            interval = TimeUnit.HOURS;
+        }else{
+            interval = TimeUnit.DAYS;
+        }
+
+        DataReadRequest readRequest = new DataReadRequest.Builder()
+                .aggregate(DataType.TYPE_HEART_RATE_BPM, DataType.AGGREGATE_HEART_RATE_SUMMARY)
+                .bucketByTime(1, interval)
+                .setTimeRange((long) startDate, (long) endDate, TimeUnit.MILLISECONDS)
+                .build();
+
+        Fitness.getHistoryClient(context, GoogleSignIn.getLastSignedInAccount(context))
+                .readData(readRequest)
+                .addOnSuccessListener(new OnSuccessListener<DataReadResponse>() {
+                    @Override
+                    public void onSuccess(DataReadResponse dataReadResponse) {
+                        if (dataReadResponse.getBuckets().size() > 0) {
+                            WritableArray heartRates = Arguments.createArray();
+                            for (Bucket bucket : dataReadResponse.getBuckets()) {
+                                List<DataSet> dataSets = bucket.getDataSets();
+                                for (DataSet dataSet : dataSets) {
+                                    processHeartRate(dataSet, heartRates);
+                                }
+                            }
+                            promise.resolve(heartRates);
                         }
                     }
                 })
@@ -435,6 +489,20 @@ public class Manager implements ActivityEventListener {
                 caloryMap.putString("endDate", dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
                 caloryMap.putDouble("quantity", dp.getValue(field).asFloat());
                 map.pushMap(caloryMap);
+            }
+        }
+    }
+
+    private void processHeartRate(DataSet dataSet, WritableArray map) {
+
+        WritableMap heartRateMap = Arguments.createMap();
+
+        for (DataPoint dp : dataSet.getDataPoints()) {
+            for(Field field : dp.getDataType().getFields()) {
+                heartRateMap.putString("startDate", dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
+                heartRateMap.putString("endDate", dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
+                heartRateMap.putDouble("quantity", dp.getValue(field).asFloat());
+                map.pushMap(heartRateMap);
             }
         }
     }

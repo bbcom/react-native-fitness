@@ -30,10 +30,29 @@ const getDistance = ({ startDate, endDate, interval = "days" }) =>
  * Get native getCalories with parsed Dates
  * @param startDate
  * @param endDate
+ * @param interval
  * @returns {*}
  */
-const getCalories = ({ startDate, endDate }) =>
-NativeModules.Fitness.getCalories(parseDate(startDate), parseDate(endDate));
+const getCalories = ({ startDate, endDate, interval = "days" }) =>
+  NativeModules.Fitness.getCalories(
+    parseDate(startDate),
+    parseDate(endDate),
+    interval
+  );
+
+/**
+ * Get native getHeartRate with parsed Dates
+ * @param startDate
+ * @param endDate
+ * @param interval
+ * @returns {*}
+ */
+const getHeartRate = ({ startDate, endDate, interval = "days" }) =>
+  NativeModules.Fitness.getHeartRate(
+    parseDate(startDate),
+    parseDate(endDate),
+    interval
+  );
 
 /**
  * Check if valid date and parse it
@@ -56,4 +75,5 @@ export default {
   getSteps,
   getDistance,
   getCalories,
+  getHeartRate,
 };
