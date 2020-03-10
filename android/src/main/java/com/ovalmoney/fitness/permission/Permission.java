@@ -12,6 +12,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
             Permission.DISTANCE,
             Permission.ACTIVITY,
             Permission.CALORIES,
+            Permission.HEART_RATE,
             Permission.WEIGHT,
     })
 
@@ -20,6 +21,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
         int DISTANCE = 1;
         int ACTIVITY = 2;
         int CALORIES = 3;
-        int WEIGHT = 4;
+		int HEART_RATE = 4;
+        int WEIGHT = 5;
     }
 

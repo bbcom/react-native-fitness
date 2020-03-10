@@ -24,6 +24,7 @@ RCT_ENUM_CONVERTER(RCTFitnessPermissionKind, (@{ @"Step"     : @(STEP),
                                                  @"Calories" : @(CALORIES),
                                                  @"Weight"   : @(WEIGHT),
                                                  @"Activity" : @(ACTIVITY),
+                                                 @"HeartRate": @(HEART_RATE),
                                                  @"Workout"  : @(WORKOUT)}),
                    STEP, integerValue)
 @end
@@ -92,6 +93,7 @@ RCT_EXPORT_MODULE(Fitness);
             @"Calories": @(CALORIES),
             @"Weight": @(WEIGHT),
             @"Activity": @(ACTIVITY),
+			@"HeartRate": @(HEART_RATE),
             @"Workout": @(WORKOUT),
         },
         @"PermissionAccess": @{
@@ -102,13 +104,14 @@ RCT_EXPORT_MODULE(Fitness);
             @"CrossTraining": @(HKWorkoutActivityTypeCrossTraining),
             @"Cycling": @(HKWorkoutActivityTypeCycling),
             @"Functional": @(HKWorkoutActivityTypeFunctionalStrengthTraining),
-            @"JumpRope": @(HKWorkoutActivityTypeJumpRope),
-            @"MixedCardio" : @(HKWorkoutActivityTypeMixedCardio),
             @"Running":  @(HKWorkoutActivityTypeRunning),
             @"StairClimbing": @(HKWorkoutActivityTypeStairClimbing),
             @"Traditional": @(HKWorkoutActivityTypeTraditionalStrengthTraining),
             @"Walking": @(HKWorkoutActivityTypeWalking),
             @"WarmUp": @(HKWorkoutActivityTypePreparationAndRecovery),
+            // These are only supported in newer iOS versions commenting for now.
+            // @"JumpRope": @(HKWorkoutActivityTypeJumpRope),
+            // @"MixedCardio" : @(HKWorkoutActivityTypeMixedCardio),
         },
     };
 }
@@ -306,6 +309,7 @@ RCT_REMAP_METHOD(getDistance,
 RCT_REMAP_METHOD(getCalories,
                  withStartDate: (double) startDate
                  andEndDate: (double) endDate
+                 andInterval: (NSString *) customInterval
                  withCaloriesResolver:(RCTPromiseResolveBlock)resolve
                  andCaloriesRejecter:(RCTPromiseRejectBlock)reject){
     
@@ -314,11 +318,17 @@ RCT_REMAP_METHOD(getCalories,
         [RCTFitness handleRejectBlock:reject error:error];
         return;
     }
+
     HKQuantityType *type =
     [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierActiveEnergyBurned];
     NSCalendar *calendar = [NSCalendar currentCalendar];
+    
     NSDateComponents *interval = [[NSDateComponents alloc] init];
-    interval.day = 1;
+    if([customInterval  isEqual: @"hour"]){
+        interval.hour = 1;
+    }else{
+        interval.day = 1;
+    }
     
     NSDateComponents *anchorComponents = [calendar components:NSCalendarUnitDay | NSCalendarUnitMonth | NSCalendarUnitYear
                                                      fromDate:[NSDate date]];
@@ -364,23 +374,89 @@ RCT_REMAP_METHOD(getCalories,
     [self.healthStore executeQuery:query];
 }
 
+RCT_REMAP_METHOD(getHeartRate,
+                 withStartDate: (double) startDate
+                 andEndDate: (double) endDate
+                 andInterval: (NSString *) customInterval
+                 withHeartRateResolver:(RCTPromiseResolveBlock)resolve
+                 andHeartRateRejecter:(RCTPromiseRejectBlock)reject){
+    
+    if(!startDate){
+        NSError * error = [RCTFitness createErrorWithCode:ErrorDateNotCorrect andDescription:RCT_ERROR_DATE_NOT_CORRECT];
+        [RCTFitness handleRejectBlock:reject error:error];
+        return;
+    }
+    HKQuantityType *type =
+    [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierHeartRate];
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+   
+    NSDateComponents *interval = [[NSDateComponents alloc] init];
+        if([customInterval  isEqual: @"hour"]){
+        interval.hour = 1;
+    }else{
+        interval.day = 1;
+    }
+    
+    NSDateComponents *anchorComponents = [calendar components:NSCalendarUnitDay | NSCalendarUnitMonth | NSCalendarUnitYear
+                                                     fromDate:[NSDate date]];
+    anchorComponents.hour = 0;
+    NSDate *anchorDate = [calendar dateFromComponents:anchorComponents];
+    HKStatisticsCollectionQuery *query = [[HKStatisticsCollectionQuery alloc] initWithQuantityType:type
+                                                                           quantitySamplePredicate:nil
+                                                                                           options:HKStatisticsOptionDiscreteAverage
+                                                                                        anchorDate:anchorDate
+                                                                                intervalComponents:interval];
+    query.initialResultsHandler =
+    ^(HKStatisticsCollectionQuery *query, HKStatisticsCollection *results, NSError *error) {
+        
+        if (error) {
+            NSError * error = [RCTFitness createErrorWithCode:ErrorNoEvents andDescription:RCT_ERROR_NO_EVENTS];
+            [RCTFitness handleRejectBlock:reject error:error];
+            return;
+        }
+        
+        NSDate * sd = [RCTFitness dateFromTimeStamp: startDate / 1000];
+        NSDate * ed = [RCTFitness dateFromTimeStamp: endDate   / 1000];
+        
+        NSMutableArray *data = [NSMutableArray arrayWithCapacity:1];
+        [results
+         enumerateStatisticsFromDate: sd
+         toDate:ed
+         withBlock:^(HKStatistics *result, BOOL *stop) {
+            HKQuantity *quantity = result.averageQuantity;
+            if (quantity) {
+                NSDictionary *elem = @{
+                    @"quantity" : @([quantity doubleValueForUnit:[[HKUnit countUnit] unitDividedByUnit:HKUnit.minuteUnit]]),
+                    @"startDate" : [RCTFitness ISO8601StringFromDate: result.startDate],
+                    @"endDate" : [RCTFitness ISO8601StringFromDate: result.endDate],
+                };
+                [data addObject:elem];
+            }
+        }];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            resolve(data);
+        });
+    };
+    
+    [self.healthStore executeQuery:query];
+}
 RCT_REMAP_METHOD(getWeight,
                  withWeightResolver:(RCTPromiseResolveBlock)resolve
                  andWeightRejecter:(RCTPromiseRejectBlock)reject){
-    
+
     // Since we are interested in retrieving the user's latest sample
     // we sort the samples in descending order by end date
     // and set the limit to 1
     // We are not filtering the data, and so the predicate is set to nil.
     NSSortDescriptor *timeSortDescriptor = [[NSSortDescriptor alloc] initWithKey:HKSampleSortIdentifierEndDate ascending:NO];
-    
+
     HKSampleQuery *query = [[HKSampleQuery alloc]
                             initWithSampleType: [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierBodyMass]
                             predicate: nil
                             limit: 1
                             sortDescriptors: @[timeSortDescriptor]
                             resultsHandler: ^(HKSampleQuery *query, NSArray<__kindof HKQuantitySample *> *results, NSError *error) {
-        
+
         if (error) {
             NSError * error = [RCTFitness createErrorWithCode:ErrorNoEvents andDescription:RCT_ERROR_NO_EVENTS];
             [RCTFitness handleRejectBlock:reject error:error];
@@ -403,7 +479,7 @@ RCT_REMAP_METHOD(getWeight,
             resolve(weight);
         });
     }];
-    
+
     [self.healthStore executeQuery:query];
 }
 
