@@ -24,7 +24,7 @@ RCT_ENUM_CONVERTER(RCTFitnessPermissionKind, (@{ @"Step"     : @(STEP),
                                                  @"Calories" : @(CALORIES),
                                                  @"Weight"   : @(WEIGHT),
                                                  @"Activity" : @(ACTIVITY),
-												 @"HeartRate" : @(HEART_RATE),
+                                                 @"HeartRate": @(HEART_RATE),
                                                  @"Workout"  : @(WORKOUT)}),
                    STEP, integerValue)
 @end
@@ -104,13 +104,14 @@ RCT_EXPORT_MODULE(Fitness);
             @"CrossTraining": @(HKWorkoutActivityTypeCrossTraining),
             @"Cycling": @(HKWorkoutActivityTypeCycling),
             @"Functional": @(HKWorkoutActivityTypeFunctionalStrengthTraining),
-            @"JumpRope": @(HKWorkoutActivityTypeJumpRope),
-            @"MixedCardio" : @(HKWorkoutActivityTypeMixedCardio),
             @"Running":  @(HKWorkoutActivityTypeRunning),
             @"StairClimbing": @(HKWorkoutActivityTypeStairClimbing),
             @"Traditional": @(HKWorkoutActivityTypeTraditionalStrengthTraining),
             @"Walking": @(HKWorkoutActivityTypeWalking),
             @"WarmUp": @(HKWorkoutActivityTypePreparationAndRecovery),
+            // These are only supported in newer iOS versions commenting for now.
+            // @"JumpRope": @(HKWorkoutActivityTypeJumpRope),
+            // @"MixedCardio" : @(HKWorkoutActivityTypeMixedCardio),
         },
     };
 }
