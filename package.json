@@ -43,6 +43,6 @@
     "/*.podspec"
   ],
   "peerDependencies": {
-    "react-native": ">=0.41.2"
+    "react-native": ">=0.61.5"
   }
 }
