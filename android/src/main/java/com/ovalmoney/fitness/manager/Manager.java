@@ -386,18 +386,21 @@ public class Manager implements ActivityEventListener {
                 .addOnSuccessListener(new OnSuccessListener<DataReadResponse>() {
                     @Override
                     public void onSuccess(DataReadResponse dataReadResponse) {
+                        WritableMap weightMap = Arguments.createMap();
+
                         if (!dataReadResponse.getDataSet(DataType.TYPE_WEIGHT).isEmpty()) {
                             DataPoint result = dataReadResponse.getDataSet(DataType.TYPE_WEIGHT).getDataPoints().get(0);
                             Double kilograms = (double) result.getValue(Field.FIELD_WEIGHT).asFloat();
 
-                            WritableMap weightMap = Arguments.createMap();
+                            // Build the response using the returned weight in Kilograms.
                             weightMap.putDouble("kilograms",kilograms);
                             weightMap.putDouble("grams",(kilograms * 1000));
                             weightMap.putDouble("pounds", (kilograms * 2.20462262185));
                             weightMap.putDouble("startDate", result.getStartTime(TimeUnit.MILLISECONDS));
                             weightMap.putDouble("endDate", result.getEndTime(TimeUnit.MILLISECONDS));
-                            promise.resolve(weightMap);
                         }
+                        // If weight was return the populated map, if not it will be empty.
+                        promise.resolve(weightMap);
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
